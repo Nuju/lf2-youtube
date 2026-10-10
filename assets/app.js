@@ -1,4 +1,4 @@
-/* LF2 YouTube v0.1.1. No background requests, credentials or viewing-history storage. */
+/* LF2 YouTube v0.2.0. No background requests, credentials or viewing-history storage. */
 (function () {
   'use strict';
   var C = window.LF2Core;
@@ -66,46 +66,120 @@
     } else { text = await response.text(); if (text.length > max) throw C.failure('API_SIZE', 'APIの応答が大きすぎます。'); }
     try { return JSON.parse(text); } catch (_) { throw C.failure('API_JSON', C.shortError({ code: 'API_JSON' })); }
   }
-  function getApi() { return C.normalizeApi($('instance').value === 'custom' ? $('api-url').value : $('instance').value); }
+  var AUTO_APIS = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi-libre.kavin.rocks',
+    'https://pipedapi.leptons.xyz',
+    'https://pipedapi.nosebs.ru',
+    'https://piped-api.privacy.com.de',
+    'https://pipedapi.adminforge.de',
+    'https://api.piped.yt',
+    'https://pipedapi.drgns.space',
+    'https://pipedapi.owo.si',
+    'https://pipedapi.ducks.party',
+    'https://piped-api.codespace.cz',
+    'https://pipedapi.reallyaweso.me',
+    'https://api.piped.private.coffee',
+    'https://pipedapi.darkness.services',
+    'https://pipedapi.orangenet.cc'
+  ];
+  function getApiCandidates() {
+    var value = $('instance').value;
+    if (value === 'auto') return AUTO_APIS.slice();
+    return [C.normalizeApi(value === 'custom' ? $('api-url').value : value)];
+  }
   function saveApi(api) { try { localStorage.setItem('lf2-youtube-api-v1', api); } catch (_) { log('STORAGE', '設定はこの画面内だけで保持'); } }
-  async function fetchInfo() {
-    if (state.busy) return;
-    var id, api, startTime;
-    try {
-      id = C.parseVideoId($('video-url').value); startTime = C.parseStartTime($('video-url').value); api = getApi();
-      if (!$('consent').checked) throw C.failure('CONSENT', '接続先への送信確認にチェックを入れてください。');
-    } catch (e) { status(C.shortError(e)); log(e.code || 'INPUT', C.shortError(e)); return; }
-    var generation = ++state.generation, timedOut = false;
-    setBusy(true); await cleanup(); resetProgress();
-    state.mode = 'youtube'; state.formats = []; state.index = -1; state.startTime = 0; state.apiOrigin = new URL(api).origin;
-    state.errors = []; $('formats-wrap').hidden = true; $('title').textContent = '動画情報を取得しています';
-    stage('api', '接続中', 'warn'); stage('format', '未確認'); status('選択したAPIへ接続しています。');
-    log('API_START', '選択した接続先へ1回だけ要求');
-    var controller = new AbortController(); state.abort = controller;
-    var timer = setTimeout(function () { timedOut = true; controller.abort(); }, 12000);
+  async function requestWithTimeout(api, id, generation, ms) {
+    var controller = new AbortController(), timedOut = false;
+    state.abort = controller;
+    var timer = setTimeout(function () { timedOut = true; controller.abort(); }, ms);
     try {
       abortCheck(generation);
       var data = await requestJson(api + '/streams/' + encodeURIComponent(id), controller.signal);
       abortCheck(generation);
-      var formats = C.candidates(data);
-      stage('api', '取得成功', 'ok'); saveApi(api); log('API_OK', 'JSONと必須項目を取得');
-      state.formats = formats; state.index = formats.length ? 0 : -1; state.startTime = data.livestream ? 0 : startTime;
-      $('title').textContent = String(data.title || 'タイトルなし').slice(0, 240);
-      $('meta').textContent = data.livestream ? 'ライブ配信 / 対応する配信形式が必要です。' : '通常動画 / まず720p以下・30fps以下の形式を優先します。';
+      return { data: data, formats: C.candidates(data) };
+    } catch (error) {
+      if (timedOut) error = C.failure('TIMEOUT', '');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      if (state.abort === controller) state.abort = null;
+    }
+  }
+  async function fetchInfo() {
+    if (state.busy) return;
+    var id, apis, startTime;
+    try {
+      id = C.parseVideoId($('video-url').value);
+      startTime = C.parseStartTime($('video-url').value);
+      apis = getApiCandidates();
+      if (!$('consent').checked) throw C.failure('CONSENT', '接続先への送信確認にチェックを入れてください。');
+    } catch (e) { status(C.shortError(e)); log(e.code || 'INPUT', C.shortError(e)); return; }
+
+    var generation = ++state.generation;
+    setBusy(true); await cleanup(); resetProgress();
+    state.mode = 'youtube'; state.formats = []; state.index = -1; state.startTime = 0; state.apiOrigin = null;
+    state.errors = []; $('formats-wrap').hidden = true; $('title').textContent = '動画情報を取得しています';
+    stage('api', apis.length > 1 ? '自動確認中' : '接続中', 'warn'); stage('format', '未確認');
+    status(apis.length > 1 ? '公開Piped接続先を順番に確認しています。少し時間がかかる場合があります。' : '選択したAPIへ接続しています。');
+
+    var chosen = null, chosenData = null, chosenFormats = null, attempts = [];
+    for (var i = 0; i < apis.length; i++) {
+      if (generation !== state.generation) break;
+      var api;
+      try { api = C.normalizeApi(apis[i]); } catch (_) { continue; }
+      var origin = new URL(api).origin;
+      stage('api', (i + 1) + '/' + apis.length + ' 確認中', 'warn');
+      status('接続先 ' + (i + 1) + '/' + apis.length + ' を確認しています。');
+      log('API_TRY', origin);
+      try {
+        var result = await requestWithTimeout(api, id, generation, 7000);
+        if (!result.formats.length) throw C.failure('NO_FORMAT', '');
+        chosen = api; chosenData = result.data; chosenFormats = result.formats;
+        log('API_OK', origin + ' / ' + result.formats.length + ' formats');
+        break;
+      } catch (error) {
+        if (generation !== state.generation || error.name === 'AbortError' && error.code !== 'TIMEOUT' || error.code === 'CANCELLED') break;
+        var code = error.code || 'NETWORK';
+        attempts.push(origin + '=' + code);
+        log('API_FAIL', origin + ' ' + code);
+      }
+    }
+
+    try {
+      abortCheck(generation);
+      if (!chosen) {
+        var e = C.failure('AUTO_NO_INSTANCE', '利用できる公開Piped接続先を確認できませんでした。');
+        state.errors.push('AUTO_NO_INSTANCE');
+        stage('api', '全候補で失敗', 'bad');
+        status('公開Piped接続先を順番に確認しましたが、動画情報を取得できませんでした。テレビ側ではなく、公開Piped側またはブラウザからの通信条件が原因の可能性があります。');
+        log('AUTO_FAIL', attempts.join(', '));
+        $('title').textContent = '動画の準備ができませんでした';
+        return;
+      }
+
+      state.apiOrigin = new URL(chosen).origin;
+      state.formats = chosenFormats; state.index = 0; state.startTime = chosenData.livestream ? 0 : startTime;
+      saveApi(chosen);
+      stage('api', '取得成功', 'ok');
+      stage('format', chosenFormats.length + '形式あり', 'ok');
+      $('title').textContent = String(chosenData.title || 'タイトルなし').slice(0, 240);
+      $('meta').textContent = chosenData.livestream ? 'ライブ配信 / 対応する配信形式が必要です。' : '通常動画 / まず720p以下・30fps以下の形式を優先します。';
       if (state.startTime > 0) $('meta').textContent += ' 開始位置: ' + Math.floor(state.startTime / 60) + '分' + state.startTime % 60 + '秒。';
       var select = $('format'); select.textContent = '';
-      formats.forEach(function (f, i) { var option = document.createElement('option'); option.value = String(i); option.textContent = f.label; select.appendChild(option); });
-      $('formats-wrap').hidden = !formats.length;
-      if (!formats.length) throw C.failure('NO_FORMAT', C.shortError({ code: 'NO_FORMAT' }));
-      stage('format', formats.length + '形式あり', 'ok');
-      log('FORMATS', formats.map(function (f) { return f.kind + (f.height ? ':' + f.height : ''); }).join(', '));
-      status('動画情報を取得しました。再生ボタンで映像と音声を確認してください。');
+      chosenFormats.forEach(function (f, idx) { var option = document.createElement('option'); option.value = String(idx); option.textContent = f.label; select.appendChild(option); });
+      $('formats-wrap').hidden = false;
+      status('利用できる接続先を見つけました。再生ボタンで映像と音声を確認してください。');
+      log('FORMATS', chosenFormats.map(function (f) { return f.kind + (f.height ? ':' + f.height : ''); }).join(', '));
     } catch (error) {
-      if (generation !== state.generation || error.name === 'AbortError' && !timedOut || error.code === 'CANCELLED') {
+      if (error.code === 'CANCELLED' || generation !== state.generation) {
         stage('api', '中止'); status('処理を中止しました。'); log('CANCELLED', 'ユーザーが中止');
-      } else { if (timedOut) error = C.failure('TIMEOUT', ''); reportError(error, stages.api === '取得成功' ? 'format' : 'api'); }
-      if (!state.formats.length) $('title').textContent = '動画の準備ができませんでした';
-    } finally { clearTimeout(timer); state.abort = null; setBusy(false); }
+      } else {
+        reportError(error, 'api');
+      }
+    } finally {
+      setBusy(false);
+    }
   }
   var enginePromise = null;
   function loadEngine() {
@@ -278,7 +352,7 @@
   }
   function makeReport() {
     var selected = state.formats[state.index];
-    return JSON.stringify({ app: 'LF2 YouTube', version: '0.1.1', exportedAt: new Date().toISOString(),
+    return JSON.stringify({ app: 'LF2 YouTube', version: '0.2.0', exportedAt: new Date().toISOString(),
       testMode: state.mode, apiOrigin: state.apiOrigin, environment: capabilities(), engineVersion: state.engine,
       selectedFormat: selected ? { kind: selected.kind, height: selected.height || null } : null,
       stages: stages, progressionObserved: state.progress, manuallyConfirmedPictureAndAudio: state.heard,
@@ -319,7 +393,8 @@
     if (saved) {
       saved = C.normalizeApi(saved);
       var exists = Array.prototype.some.call($('instance').options, function (o) { return o.value === saved; });
-      $('instance').value = exists ? saved : 'custom'; $('api-url').value = saved; $('custom-wrap').hidden = exists;
+      if (!exists) $('api-url').value = saved;
+      $('instance').value = 'auto'; $('custom-wrap').hidden = true;
     }
   } catch (_) { /* A corrupt saved preference never prevents startup. */ }
   var caps = capabilities(); $('capabilities').textContent = 'ブラウザ申告: MP4=' + (caps.nativeMP4 || '非対応') + ' / MSE=' + caps.mediaSource + ' / H.264=' + caps.avcMSE + ' / AAC=' + caps.aacMSE + '。実機の出力確認は別です。';
