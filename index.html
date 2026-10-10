@@ -6,13 +6,13 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: blob:; media-src 'self' https: blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob:">
   <title>LF2 YouTube — 視聴テスト</title>
-  <link rel="stylesheet" href="assets/style.css?v=0.1.1">
-  <script src="assets/core.js?v=0.1.1" defer></script>
-  <script src="assets/app.js?v=0.1.1" defer></script>
+  <link rel="stylesheet" href="assets/style.css?v=0.2.0">
+  <script src="assets/core.js?v=0.2.0" defer></script>
+  <script src="assets/app.js?v=0.2.0" defer></script>
 </head>
 <body>
 <main>
-  <header><div><p class="eyebrow">PANASONIC TV · BROWSER PLAYER</p><h1>LF2 YouTube <span>視聴テスト</span></h1></div><span class="version">v0.1.1 / 検証版</span></header>
+  <header><div><p class="eyebrow">PANASONIC TV · BROWSER PLAYER</p><h1>LF2 YouTube <span>視聴テスト</span></h1></div><span class="version">v0.2.0 / 検証版</span></header>
   <p class="intro">PCの常時起動なしで再生を試す、小さなプレイヤーです。公開Pipedサーバーの稼働と、テレビでの再生は未確認です。</p>
   <div class="layout">
     <section class="panel setup" aria-labelledby="input-title">
@@ -23,14 +23,26 @@
       <p id="video-url-hint" class="hint">テスト動画の開始位置は5分19秒です。URLは変更できます。上のボタンで指定の動画に戻せます。</p>
       <label for="instance">接続先のAPI</label>
       <select id="instance">
-        <option value="https://pipedapi.kavin.rocks">kavin.rocks — 稼働未確認</option>
-        <option value="https://pipedapi.adminforge.de">adminforge.de — 稼働未確認</option>
-        <option value="https://api.piped.private.coffee">private.coffee — 稼働未確認</option>
-        <option value="https://pipedapi.reallyaweso.me">reallyaweso.me — 稼働未確認</option>
+        <option value="auto" selected>自動選択 — 動く接続先を順番に確認</option>
+        <option value="https://pipedapi.kavin.rocks">kavin.rocks (Official)</option>
+        <option value="https://pipedapi-libre.kavin.rocks">kavin.rocks libre (Official)</option>
+        <option value="https://pipedapi.leptons.xyz">leptons.xyz</option>
+        <option value="https://pipedapi.nosebs.ru">nosebs.ru</option>
+        <option value="https://piped-api.privacy.com.de">privacy.com.de</option>
+        <option value="https://pipedapi.adminforge.de">adminforge.de</option>
+        <option value="https://api.piped.yt">piped.yt</option>
+        <option value="https://pipedapi.drgns.space">drgns.space</option>
+        <option value="https://pipedapi.owo.si">owo.si</option>
+        <option value="https://pipedapi.ducks.party">ducks.party</option>
+        <option value="https://piped-api.codespace.cz">codespace.cz</option>
+        <option value="https://pipedapi.reallyaweso.me">reallyaweso.me</option>
+        <option value="https://api.piped.private.coffee">private.coffee</option>
+        <option value="https://pipedapi.darkness.services">darkness.services</option>
+        <option value="https://pipedapi.orangenet.cc">orangenet.cc</option>
         <option value="custom">URLを自分で指定</option>
       </select>
       <div id="custom-wrap" hidden><label for="api-url">APIのベースURL（HTTPS）</label><input id="api-url" type="url" spellcheck="false" placeholder="https://api.example.org"></div>
-      <p class="hint">一覧はPiped公式資料に掲載の接続先です。正常動作の保証ではありません。自動切り替えはしません。</p>
+      <p class="hint">自動選択では、Piped公式の公開一覧に掲載された接続先を上から順番に試し、動画情報と再生形式を取得できた最初の接続先を使います。各接続先の正常動作は保証されません。</p>
       <label class="check"><input id="consent" type="checkbox">選んだ接続先へ動画IDを送信して取得する</label>
       <p class="privacy">接続先にはIPアドレスや動画IDが伝わります。ログイン情報は扱いません。操作前の外部通信はありません。</p>
       <div class="buttons"><button id="fetch" class="primary">動画情報を取得</button><button id="cancel" disabled>中止</button></div>
