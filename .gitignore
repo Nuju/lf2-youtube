@@ -1,0 +1,11 @@
+node_modules/
+dist/
+playwright-results/
+*.log
+.env
+.env.*
+assets/probe.mp4
+docs/preview.png
+docs/*-results.json
+docs/unit-test-results.txt
+__pycache__/

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: blob:; media-src 'self' https: blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob:">
+  <title>LF2 YouTube — 視聴テスト</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/core.js" defer></script>
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header><div><p class="eyebrow">PANASONIC TV · BROWSER PLAYER</p><h1>LF2 YouTube <span>視聴テスト</span></h1></div><span class="version">v0.1.0 / 検証版</span></header>
+  <p class="intro">PCの常時起動なしで再生を試す、小さなプレイヤーです。公開Pipedサーバーの稼働と、テレビでの再生は未確認です。</p>
+  <div class="layout">
+    <section class="panel setup" aria-labelledby="input-title">
+      <h2 id="input-title">01 <span>動画を指定</span></h2>
+      <label for="video-url">YouTubeのURL / 動画ID</label>
+      <input id="video-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…">
+      <label for="instance">接続先のAPI</label>
+      <select id="instance">
+        <option value="https://pipedapi.kavin.rocks">kavin.rocks — 稼働未確認</option>
+        <option value="https://pipedapi.adminforge.de">adminforge.de — 稼働未確認</option>
+        <option value="https://api.piped.private.coffee">private.coffee — 稼働未確認</option>
+        <option value="https://pipedapi.reallyaweso.me">reallyaweso.me — 稼働未確認</option>
+        <option value="custom">URLを自分で指定</option>
+      </select>
+      <div id="custom-wrap" hidden><label for="api-url">APIのベースURL（HTTPS）</label><input id="api-url" type="url" spellcheck="false" placeholder="https://api.example.org"></div>
+      <p class="hint">一覧はPiped公式資料に掲載の接続先です。正常動作の保証ではありません。自動切り替えはしません。</p>
+      <label class="check"><input id="consent" type="checkbox">選んだ接続先へ動画IDを送信して取得する</label>
+      <p class="privacy">接続先にはIPアドレスや動画IDが伝わります。ログイン情報は扱いません。操作前の外部通信はありません。</p>
+      <div class="buttons"><button id="fetch" class="primary">動画情報を取得</button><button id="cancel" disabled>中止</button></div>
+      <hr>
+      <button id="probe" class="secondary">テレビの基本再生テスト</button>
+      <p class="hint">同梱の10秒動画と小さな確認音を再生します。これはYouTubeの視聴成功とは別のテストです。</p>
+    </section>
+    <section class="panel playback" aria-labelledby="play-title">
+      <h2 id="play-title">02 <span>再生を確認</span></h2>
+      <div id="video-wrap"><video id="video" crossorigin="anonymous" controls controlslist="nodownload noremoteplayback" playsinline preload="none" aria-label="動画プレイヤー"></video><div id="empty">動画情報を取得するか、<br>基本再生テストを選んでください。</div></div>
+      <h3 id="title">まだ動画を取得していません</h3>
+      <p id="meta" class="hint">再生できても、テレビから音が出ることは実際にお確かめください。</p>
+      <div id="formats-wrap" hidden><label for="format">再生方式</label><select id="format"></select></div>
+      <div class="buttons playback-buttons"><button id="play" class="primary" disabled>再生 / 一時停止</button><button id="back" disabled>10秒戻る</button><button id="forward" disabled>10秒進む</button><button id="fullscreen" disabled>全画面</button></div>
+      <button id="heard" disabled>映像と音声を確認できた</button>
+    </section>
+  </div>
+  <section class="panel diagnostics" aria-labelledby="check-title">
+    <div class="section-head"><h2 id="check-title">03 <span>確認結果</span></h2><button id="report-button">診断レポートを表示</button></div>
+    <div class="steps"><div><span>API接続</span><strong id="stage-api">未確認</strong></div><div><span>対応形式</span><strong id="stage-format">未確認</strong></div><div><span>映像の進行</span><strong id="stage-play">未確認</strong></div><div><span>映像・音声の実機確認</span><strong id="stage-audio">未確認</strong></div></div>
+    <p id="status" role="status" aria-live="polite">準備できています。最初に基本再生テストを行うと、問題を切り分けやすくなります。</p>
+    <details><summary>詳しい診断</summary><pre id="log"></pre><p id="capabilities" class="hint"></p></details>
+    <div id="report-wrap" hidden><p class="hint">動画ID・動画タイトル・署名付き再生URLは含みません。レポートは自動送信されません。</p><textarea id="report" rows="12" readonly aria-label="診断レポート"></textarea><div class="buttons"><button id="copy">コピー</button><button id="download">テキストで保存</button></div></div>
+  </section>
+  <footer><p>公式YouTubeアプリの広告を変更するものではありません。ログイン、年齢制限の解除、有料コンテンツ、ダウンロードは扱いません。</p><p>検索・お気に入りは、実機で視聴できることを確認してから追加します。YouTubeおよびPiped各接続先の利用条件に従ってください。</p></footer>
+</main>
+</body>
+</html>
