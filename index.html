@@ -18,7 +18,8 @@
     <section class="panel setup" aria-labelledby="input-title">
       <h2 id="input-title">01 <span>動画を指定</span></h2>
       <label for="video-url">YouTubeのURL / 動画ID</label>
-      <input id="video-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…">
+      <input id="video-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" value="https://www.youtube.com/watch?v=9-YYeiBjcak" aria-describedby="video-url-hint">
+      <p id="video-url-hint" class="hint">テスト用の動画URLを入力済みです。動画の先頭から再生します。別のURLへ変更できます。</p>
       <label for="instance">接続先のAPI</label>
       <select id="instance">
         <option value="https://pipedapi.kavin.rocks">kavin.rocks — 稼働未確認</option>

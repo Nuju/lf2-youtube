@@ -60,7 +60,15 @@ try:
         page.on('request', lambda r: requests.append(r.url))
         page.goto(BASE)
         expect(page.locator('#title')).to_have_text('まだ動画を取得していません')
+        # The owner explicitly requested this public test-video preset.
+        # Only check the prefilled value; never request this video in CI.
+        expect(page.locator('#video-url')).to_have_value('https://www.youtube.com/watch?v=9-YYeiBjcak')
+        expect(page.locator('#video-url')).to_be_editable()
+        expect(page.locator('#consent')).not_to_be_checked()
+        expect(page.locator('#play')).to_be_disabled()
+        assert page.locator('#video-url').evaluate('(input) => LF2Core.parseVideoId(input.value)') == '9-YYeiBjcak'
         assert not any(not u.startswith('http://127.0.0.1:') for u in requests), requests
+        mark('指定テスト動画を事前入力・編集可能・自動取得や自動再生なし')
         page.screenshot(path=str(ROOT / 'docs/preview.png'), full_page=True)
         mark('初期表示・同一配下パス・操作前の外部通信なし')
         page.locator('#probe').click()
