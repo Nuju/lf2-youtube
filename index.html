@@ -6,20 +6,21 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: blob:; media-src 'self' https: blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob:">
   <title>LF2 YouTube — 視聴テスト</title>
-  <link rel="stylesheet" href="assets/style.css">
-  <script src="assets/core.js" defer></script>
-  <script src="assets/app.js" defer></script>
+  <link rel="stylesheet" href="assets/style.css?v=0.1.1">
+  <script src="assets/core.js?v=0.1.1" defer></script>
+  <script src="assets/app.js?v=0.1.1" defer></script>
 </head>
 <body>
 <main>
-  <header><div><p class="eyebrow">PANASONIC TV · BROWSER PLAYER</p><h1>LF2 YouTube <span>視聴テスト</span></h1></div><span class="version">v0.1.0 / 検証版</span></header>
+  <header><div><p class="eyebrow">PANASONIC TV · BROWSER PLAYER</p><h1>LF2 YouTube <span>視聴テスト</span></h1></div><span class="version">v0.1.1 / 検証版</span></header>
   <p class="intro">PCの常時起動なしで再生を試す、小さなプレイヤーです。公開Pipedサーバーの稼働と、テレビでの再生は未確認です。</p>
   <div class="layout">
     <section class="panel setup" aria-labelledby="input-title">
       <h2 id="input-title">01 <span>動画を指定</span></h2>
       <label for="video-url">YouTubeのURL / 動画ID</label>
-      <input id="video-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" value="https://www.youtube.com/watch?v=9-YYeiBjcak" aria-describedby="video-url-hint">
-      <p id="video-url-hint" class="hint">テスト用の動画URLを入力済みです。動画の先頭から再生します。別のURLへ変更できます。</p>
+      <input id="video-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2048" value="https://www.youtube.com/watch?v=9-YYeiBjcak&amp;t=319s" placeholder="https://www.youtube.com/watch?v=…" aria-describedby="video-url-hint">
+      <div class="buttons"><button id="test-video" class="secondary">指定のテスト動画を入力</button></div>
+      <p id="video-url-hint" class="hint">テスト動画の開始位置は5分19秒です。URLは変更できます。上のボタンで指定の動画に戻せます。</p>
       <label for="instance">接続先のAPI</label>
       <select id="instance">
         <option value="https://pipedapi.kavin.rocks">kavin.rocks — 稼働未確認</option>

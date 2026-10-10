@@ -1,6 +1,6 @@
 {
   "name": "lf2-youtube",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "GitHub Pages + Piped playback feasibility probe for Panasonic TH-43LF2Y",
   "engines": { "node": ">=20" },

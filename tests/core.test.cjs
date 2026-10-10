@@ -12,6 +12,29 @@ for (const [name, input] of [ ['id', id], ['watch', 'https://www.youtube.com/wat
 for (const input of ['https://youtube.com.evil.org/watch?v=' + id, 'https://youtu.be@evil.org/' + id, 'javascript:alert(1)', 'https://www.youtube.com/playlist?list=abc', 'https://youtube.com/watch?v=abc', '', 'https://youtube.com:444/watch?v=' + id]) {
   test('reject invalid video URL: ' + input, () => assert.throws(() => C.parseVideoId(input)));
 }
+test('requested mobile test link keeps video ID and 5:19 start', () => {
+  const input = 'https://m.youtube.com/watch?v=9-YYeiBjcak&t=319s&pp=ugUEEgJqYQ%3D%3D';
+  assert.equal(C.parseVideoId(input), '9-YYeiBjcak');
+  assert.equal(C.parseStartTime(input), 319);
+});
+for (const [name, suffix, seconds] of [
+  ['integer seconds', '&t=319', 319],
+  ['minutes and seconds', '&t=5m19s', 319],
+  ['hours, minutes and seconds', '&t=1h2m3s', 3723],
+  ['start parameter', '&start=319', 319],
+  ['fragment time', '#t=5m19s', 319],
+  ['zero', '&t=0s', 0],
+  ['unspecified', '', 0]
+]) {
+  test('start time: ' + name, () => assert.equal(C.parseStartTime('https://www.youtube.com/watch?v=' + id + suffix), seconds));
+}
+test('video ID without a URL has no start time', () => assert.equal(C.parseStartTime(id), 0));
+for (const value of ['', '-1', '1.5', '319junk', 'Infinity', '9007199254740992']) {
+  test('invalid start time falls back to zero: ' + value, () => assert.equal(C.parseStartTime('https://www.youtube.com/watch?v=' + id + '&t=' + value), 0));
+}
+test('malformed or missing URL has no start time', () => {
+  for (const value of [undefined, null, '', 'not a URL']) assert.equal(C.parseStartTime(value), 0);
+});
 for (const input of ['http://example.org', 'https://127.0.0.1', 'https://2130706433', 'https://0x7f000001', 'https://[::1]', 'https://router.local', 'https://localhost.', 'https://intranet', 'https://u:p@example.org', 'data:text/plain,x', 'https://example.org:8443']) {
   test('reject non-public/unsafe API: ' + input, () => assert.equal(C.publicHttps(input), null));
 }

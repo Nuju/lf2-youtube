@@ -1,4 +1,4 @@
-/* LF2 YouTube v0.1.0. No background requests, credentials or viewing-history storage. */
+/* LF2 YouTube v0.1.1. No background requests, credentials or viewing-history storage. */
 (function () {
   'use strict';
   var C = window.LF2Core;
@@ -6,7 +6,7 @@
   var video = $('video');
   var state = { mode: 'none', apiOrigin: null, formats: [], index: -1, loadedIndex: -1, player: null,
     blob: null, busy: false, abort: null, generation: 0, events: [], errors: [], progress: false,
-    heard: false, lastTime: 0, ticks: 0, ready: false, engine: null };
+    heard: false, lastTime: 0, ticks: 0, ready: false, engine: null, startTime: 0, pendingStart: null };
   var stages = { api: '未確認', format: '未確認', play: '未確認', audio: '未確認' };
   function log(code, text) {
     state.events.push({ time: new Date().toISOString(), code: code, detail: C.safeLogText(text) });
@@ -17,7 +17,7 @@
   function stage(key, text, css) { stages[key] = text; $('stage-' + key).textContent = text; $('stage-' + key).className = css || ''; }
   function setBusy(value) {
     state.busy = value;
-    $('fetch').disabled = value; $('probe').disabled = value; $('cancel').disabled = !value;
+    $('fetch').disabled = value; $('probe').disabled = value; $('test-video').disabled = value; $('cancel').disabled = !value;
     $('format').disabled = value; $('instance').disabled = value; $('api-url').disabled = value;
     $('play').disabled = value || state.mode === 'none' || state.mode === 'youtube' && !state.formats.length;
     ['back', 'forward', 'fullscreen'].forEach(function (id) { $(id).disabled = value || !state.ready; });
@@ -33,7 +33,7 @@
     $('heard').disabled = true; stage('play', '未確認'); stage('audio', '未確認');
   }
   async function cleanup() {
-    state.ready = false; state.loadedIndex = -1;
+    state.ready = false; state.loadedIndex = -1; state.pendingStart = null;
     video.pause(); video.removeAttribute('src'); video.load();
     var previous = state.player; state.player = null;
     if (previous) { try { await previous.destroy(); } catch (_) { log('CLEANUP', '再生エンジンを終了'); } }
@@ -70,14 +70,14 @@
   function saveApi(api) { try { localStorage.setItem('lf2-youtube-api-v1', api); } catch (_) { log('STORAGE', '設定はこの画面内だけで保持'); } }
   async function fetchInfo() {
     if (state.busy) return;
-    var id, api;
+    var id, api, startTime;
     try {
-      id = C.parseVideoId($('video-url').value); api = getApi();
+      id = C.parseVideoId($('video-url').value); startTime = C.parseStartTime($('video-url').value); api = getApi();
       if (!$('consent').checked) throw C.failure('CONSENT', '接続先への送信確認にチェックを入れてください。');
     } catch (e) { status(C.shortError(e)); log(e.code || 'INPUT', C.shortError(e)); return; }
     var generation = ++state.generation, timedOut = false;
     setBusy(true); await cleanup(); resetProgress();
-    state.mode = 'youtube'; state.formats = []; state.index = -1; state.apiOrigin = new URL(api).origin;
+    state.mode = 'youtube'; state.formats = []; state.index = -1; state.startTime = 0; state.apiOrigin = new URL(api).origin;
     state.errors = []; $('formats-wrap').hidden = true; $('title').textContent = '動画情報を取得しています';
     stage('api', '接続中', 'warn'); stage('format', '未確認'); status('選択したAPIへ接続しています。');
     log('API_START', '選択した接続先へ1回だけ要求');
@@ -89,9 +89,10 @@
       abortCheck(generation);
       var formats = C.candidates(data);
       stage('api', '取得成功', 'ok'); saveApi(api); log('API_OK', 'JSONと必須項目を取得');
-      state.formats = formats; state.index = formats.length ? 0 : -1;
+      state.formats = formats; state.index = formats.length ? 0 : -1; state.startTime = data.livestream ? 0 : startTime;
       $('title').textContent = String(data.title || 'タイトルなし').slice(0, 240);
       $('meta').textContent = data.livestream ? 'ライブ配信 / 対応する配信形式が必要です。' : '通常動画 / まず720p以下・30fps以下の形式を優先します。';
+      if (state.startTime > 0) $('meta').textContent += ' 開始位置: ' + Math.floor(state.startTime / 60) + '分' + state.startTime % 60 + '秒。';
       var select = $('format'); select.textContent = '';
       formats.forEach(function (f, i) { var option = document.createElement('option'); option.value = String(i); option.textContent = f.label; select.appendChild(option); });
       $('formats-wrap').hidden = !formats.length;
@@ -152,7 +153,7 @@
     });
     var url = format.url;
     if (format.kind === 'dash-generated') { state.blob = URL.createObjectURL(new Blob([format.manifest], { type: 'application/dash+xml' })); url = state.blob; }
-    await player.load(url, 0, format.mime); abortCheck(generation);
+    await player.load(url, state.startTime, format.mime); abortCheck(generation);
   }
   async function startPlayback() {
     if (state.busy || state.mode === 'none') return;
@@ -170,6 +171,7 @@
     try {
       abortCheck(generation);
       if (format.kind === 'mp4' || format.kind === 'hls' && video.canPlayType('application/vnd.apple.mpegurl')) {
+        state.pendingStart = state.startTime > 0 ? state.startTime : null;
         video.src = format.url; video.load();
       } else { await engineLoad(format, generation); }
       abortCheck(generation);
@@ -194,13 +196,17 @@
   async function probe() {
     if (state.busy) return;
     var generation = ++state.generation; setBusy(true); await cleanup(); resetProgress();
-    abortCheck(generation); state.mode = 'probe'; state.formats = []; state.apiOrigin = null; state.errors = [];
+    abortCheck(generation); state.mode = 'probe'; state.formats = []; state.startTime = 0; state.apiOrigin = null; state.errors = [];
     $('formats-wrap').hidden = true; $('title').textContent = '基本再生テスト（YouTubeではありません）';
     $('meta').textContent = '同梱動画 / H.264 Baseline 640×360・24fps / AAC確認音 / 10秒';
     stage('api', '対象外（同梱動画）'); stage('format', 'H.264 + AAC');
     video.src = 'assets/probe.mp4'; video.load(); state.ready = true; $('empty').hidden = true;
     log('PROBE', '同梱の合成動画を再生。YouTube成功には数えない'); setBusy(false); await playWithGesture();
   }
+  $('test-video').addEventListener('click', function () {
+    $('video-url').value = $('video-url').defaultValue;
+    status('指定のテスト動画を入力しました。送信確認にチェックを入れ、「動画情報を取得」を押してください。');
+  });
   $('fetch').addEventListener('click', fetchInfo);
   $('probe').addEventListener('click', function () { probe().catch(function (e) { status(C.shortError(e)); setBusy(false); }); });
   $('play').addEventListener('click', startPlayback);
@@ -245,7 +251,18 @@
     }
   });
   video.addEventListener('seeking', function () { state.ticks = 0; });
-  video.addEventListener('loadedmetadata', function () { log('METADATA', video.videoWidth + 'x' + video.videoHeight); });
+  function applyStartTime() {
+    if (state.pendingStart === null || state.mode !== 'youtube') return;
+    var target = state.pendingStart;
+    if (Number.isFinite(video.duration)) target = Math.min(target, Math.max(0, video.duration - 0.1));
+    try {
+      video.currentTime = target; state.pendingStart = null;
+      log('START_POSITION', 'URLで指定された開始位置へ移動');
+    } catch (_) { /* Some native players need loadeddata or canplay before seeking. */ }
+  }
+  video.addEventListener('loadedmetadata', function () { log('METADATA', video.videoWidth + 'x' + video.videoHeight); applyStartTime(); });
+  video.addEventListener('loadeddata', applyStartTime);
+  video.addEventListener('canplay', applyStartTime);
   video.addEventListener('error', function () {
     if (!state.ready || !video.error) return;
     var code = video.error.code;
@@ -261,7 +278,7 @@
   }
   function makeReport() {
     var selected = state.formats[state.index];
-    return JSON.stringify({ app: 'LF2 YouTube', version: '0.1.0', exportedAt: new Date().toISOString(),
+    return JSON.stringify({ app: 'LF2 YouTube', version: '0.1.1', exportedAt: new Date().toISOString(),
       testMode: state.mode, apiOrigin: state.apiOrigin, environment: capabilities(), engineVersion: state.engine,
       selectedFormat: selected ? { kind: selected.kind, height: selected.height || null } : null,
       stages: stages, progressionObserved: state.progress, manuallyConfirmedPictureAndAudio: state.heard,

@@ -1,4 +1,4 @@
-/* LF2 YouTube v0.1.0 — browser-independent validation and stream selection. */
+/* LF2 YouTube v0.1.1 — browser-independent validation and stream selection. */
 (function (root, factory) {
   'use strict';
   var api = factory();
@@ -22,6 +22,21 @@
     }
     if (!/^[A-Za-z0-9_-]{11}$/.test(id || '')) throw failure('INPUT', '個別のYouTube動画URLを入力してください。チャンネルや一覧のURLは使えません。');
     return id;
+  }
+  function parseStartTime(input) {
+    var u, value, seconds, parts;
+    try { parseVideoId(input); u = new URL(String(input || '').trim()); } catch (_) { return 0; }
+    value = u.searchParams.get('t');
+    if (value === null) value = u.searchParams.get('start');
+    if (value === null) value = new URLSearchParams(u.hash.slice(1)).get('t');
+    if (!value) return 0;
+    if (/^\d+$/.test(value)) seconds = Number(value);
+    else {
+      parts = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i.exec(value);
+      if (!parts) return 0;
+      seconds = Number(parts[1] || 0) * 3600 + Number(parts[2] || 0) * 60 + Number(parts[3] || 0);
+    }
+    return Number.isSafeInteger(seconds) && seconds >= 0 ? seconds : 0;
   }
   function publicHttps(value) {
     if (typeof value !== 'string' || value.length > 16384) return null;
@@ -113,5 +128,5 @@
   function safeLogText(value) {
     return String(value || '').replace(/https?:\/\/[^\s"<>]+/g, '[URL omitted]').replace(/\b[A-Za-z0-9_-]{11}\b/g, '[id]').slice(0, 320);
   }
-  return { failure: failure, parseVideoId: parseVideoId, publicHttps: publicHttps, normalizeApi: normalizeApi, candidates: candidates, makeDash: makeDash, hasRange: hasRange, shortError: shortError, safeLogText: safeLogText };
+  return { failure: failure, parseVideoId: parseVideoId, parseStartTime: parseStartTime, publicHttps: publicHttps, normalizeApi: normalizeApi, candidates: candidates, makeDash: makeDash, hasRange: hasRange, shortError: shortError, safeLogText: safeLogText };
 }));
